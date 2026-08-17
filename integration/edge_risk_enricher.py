@@ -18,14 +18,15 @@ class EdgeRiskEnricher:
         "motorway": 0.0,
         "trunk": 0.0,
         "primary": 0.0,
-        "secondary": 0.1,
-        "tertiary": 0.2,
-        "residential": 0.2,
-        "service": 0.3,
-        "unclassified": 0.4,
-        "track": 0.8,
+        "secondary": 0.02,
+        "tertiary": 0.05,
+        "residential": 0.05,
+        "service": 0.07,
+        "unclassified": 0.1,
+        "track": 0.15,
     }
 
+    risk_multiplier: float = 2.5
     default_base_risk: float = 0.5
     rain_risk_model: RainfallRiskModel = field(default_factory=RainfallRiskModel)
     vulnerability: RoadRainVulnerability = field(default_factory=RoadRainVulnerability)
@@ -76,5 +77,5 @@ class EdgeRiskEnricher:
             1.0,
             edges["base_road_risk"] + edges["road_vulnerability"] * edges["rain_risk"], # TODO: calcualtion may needs to be fixed.
         )
-        edges["cost"] = edges["travel_time_m"] + self.risk_weight_minutes * edges["surface_risk"]
+
         return edges

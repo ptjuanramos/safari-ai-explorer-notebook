@@ -3,6 +3,7 @@ import pandas as pd
 import geopandas as gpd
 import ee
 
+from ee import ImageCollection
 from dataclasses import dataclass
 from shapely.geometry import box
 
@@ -48,7 +49,7 @@ class CHIRPSProvider:
             grid: gpd.GeoDataFrame,
             start_date: str,
             end_date: str
-    ) -> gpd.GeoDataFrame:
+    ) -> tuple[gpd.GeoDataFrame, ImageCollection]:
 
         """
         Each row contains:
@@ -63,9 +64,13 @@ class CHIRPSProvider:
         start = pd.to_datetime(start_date)
         end = (pd.Timestamp(end_date) + pd.Timedelta(days=1)) #end date is exclusive, adding 1 day
 
-        accumulated_image = (
+        image_collection = (
             ee.ImageCollection(CHIRPSProvider.COLLECTION_ID)
             .filterDate(start.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d"))
+        )
+
+        accumulated_image = (
+            image_collection
             .sum()
             .rename("rain_mm")
         )
@@ -90,4 +95,4 @@ class CHIRPSProvider:
 
         result = grid.copy()
         result["rain_mm"] = result["pixel_id"].map(rain_by_pixel)
-        return result
+        return result, image_collection
