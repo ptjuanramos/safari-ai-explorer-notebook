@@ -4,6 +4,10 @@ import osmnx as ox
 
 @dataclass
 class ParkRoadNetwork:
+    """
+    Nodes and edges loader from OSMnx data.
+    """
+
     place_name: str
     exclude_road_types: tuple[str, ...] = ("footway", "path")
 
@@ -13,6 +17,13 @@ class ParkRoadNetwork:
         return not any(r in self.exclude_road_types for r in road_type)
 
     def load(self) -> tuple[gpd.GeoDataFrame, gpd.GeoDataFrame]:
+        """
+        TODO: 'The current implementation only removes explicitly excluded OSM `highway`
+            types and does not validate access restrictions such
+             as `motor_vehicle`, `access`, `vehicle`, or private roads.'
+
+        :return: nodes and edges obtained from OSMnx data.
+        """
         graph = ox.graph_from_place(self.place_name, network_type="all", retain_all=True)
         graph = ox.add_edge_speeds(graph)
         graph = ox.add_edge_travel_times(graph)

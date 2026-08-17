@@ -14,7 +14,18 @@ class EdgeRiskEnricher:
         rain-vulnerable that road type is.
     """
 
-    base_road_risk: dict
+    HIGHWAY_SURFACE_RISK = {
+        "motorway": 0.0,
+        "trunk": 0.0,
+        "primary": 0.0,
+        "secondary": 0.1,
+        "tertiary": 0.2,
+        "residential": 0.2,
+        "service": 0.3,
+        "unclassified": 0.4,
+        "track": 0.8,
+    }
+
     default_base_risk: float = 0.5
     rain_risk_model: RainfallRiskModel = field(default_factory=RainfallRiskModel)
     vulnerability: RoadRainVulnerability = field(default_factory=RoadRainVulnerability)
@@ -23,7 +34,7 @@ class EdgeRiskEnricher:
     def _base_risk_for(self, road_type) -> float:
         if isinstance(road_type, list):
             road_type = road_type[0]
-        return self.base_road_risk.get(str(road_type), self.default_base_risk)
+        return self.HIGHWAY_SURFACE_RISK.get(str(road_type), self.default_base_risk)
 
     def enrich(self, edges: gpd.GeoDataFrame, rain_pixels: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
         """
@@ -63,7 +74,7 @@ class EdgeRiskEnricher:
 
         edges["surface_risk"] = np.minimum(
             1.0,
-            edges["base_road_risk"] + edges["road_vulnerability"] * edges["rain_risk"],
+            edges["base_road_risk"] + edges["road_vulnerability"] * edges["rain_risk"], # TODO: calcualtion may needs to be fixed.
         )
         edges["cost"] = edges["travel_time_m"] + self.risk_weight_minutes * edges["surface_risk"]
         return edges
