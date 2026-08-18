@@ -71,7 +71,7 @@ class CHIRPSProvider:
 
         accumulated_image = (
             image_collection
-            .sum()
+            .mean()
             .rename("rain_mm")
         )
 
