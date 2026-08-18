@@ -6,6 +6,7 @@ import ee
 from ee import ImageCollection
 from dataclasses import dataclass
 from shapely.geometry import box
+from antecedent_precipitation_index import AntecedentPrecipitationIndex, DailyObservation
 
 @dataclass
 class CHIRPSProvider:
@@ -71,7 +72,7 @@ class CHIRPSProvider:
 
         accumulated_image = (
             image_collection
-            .mean()
+            .sum()
             .rename("rain_mm")
         )
 
@@ -82,10 +83,13 @@ class CHIRPSProvider:
             )
             for row in grid.itertuples()
         ]
+
         fc = ee.FeatureCollection(features)
 
         reduced = accumulated_image.reduceRegions(
-            collection=fc, reducer=ee.Reducer.mean(), scale=5566,
+            collection=fc,
+            reducer=ee.Reducer.mean(),
+            scale=5566,
         ).getInfo()
 
         rain_by_pixel = {
@@ -95,4 +99,73 @@ class CHIRPSProvider:
 
         result = grid.copy()
         result["rain_mm"] = result["pixel_id"].map(rain_by_pixel)
+        return result, image_collection
+
+    def get_decayed_precipitation(
+            self,
+            grid: gpd.GeoDataFrame,
+            date: str,
+            lookback_days: int
+    ) -> tuple[gpd.GeoDataFrame, ImageCollection]:
+
+        """
+        Same grid/pixel_id contract as get_accumulated_precipitation, but rain_mm
+        is now a decay-weighted API value instead of a flat window sum.
+        """
+
+        api = AntecedentPrecipitationIndex()
+        end = pd.Timestamp(date)
+        start = end - pd.Timedelta(days=lookback_days - 1)
+        query_end = end + pd.Timedelta(days=1)  # exclusive, matches existing convention
+
+        image_collection = (
+            ee.ImageCollection(self.COLLECTION_ID)
+            .filterDate(start.strftime("%Y-%m-%d"), query_end.strftime("%Y-%m-%d"))
+            .sort("system:time_start")  # oldest -> newest, so band order is predictable
+            .select("precipitation")
+        )
+
+        n_days = image_collection.size().getInfo()
+        if n_days != lookback_days:
+            raise ValueError(
+                f"expected {lookback_days} daily images, got {n_days} "
+                "- check CHIRPS coverage for this window"
+            )
+
+        stacked = image_collection.toBands()
+        band_names = stacked.bandNames().getInfo()
+
+        features = [
+            ee.Feature(
+                ee.Geometry.Rectangle(list(row.geometry.bounds)),
+                {"pixel_id": int(row.pixel_id)},
+            )
+            for row in grid.itertuples()
+        ]
+        fc = ee.FeatureCollection(features)
+
+        reduced = stacked.reduceRegions(
+            collection=fc,
+            reducer=ee.Reducer.mean(),
+            scale=5566,
+        ).getInfo()
+
+        decayed_by_pixel = {}
+        for f in reduced["features"]:
+            props = f["properties"]
+            pixel_id = props["pixel_id"]
+
+            observations = [
+                DailyObservation(
+                    days_ago=(n_days - 1) - i,
+                    rain_mm=props.get(band_names[i]) or 0.0,
+                    t_clt=20.0,
+                    t_avg=20.0,  # TODO: fixed for now — no temperature term until this is validated
+                )
+                for i in range(n_days)
+            ]
+            decayed_by_pixel[pixel_id] = api.compute(observations)
+
+        result = grid.copy()
+        result["rain_mm"] = result["pixel_id"].map(decayed_by_pixel)
         return result, image_collection
