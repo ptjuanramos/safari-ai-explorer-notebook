@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+.env
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Cache directories (API/data caches across all modules)
+cache/
+eda/cache/
+graph-representation/cache/
+integration/cache/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data files (large downloads)
+*.nc
+*.tif
+*.tiff
+*.geotiff
+*.h5
+*.hdf5
+*.csv
+*.parquet
